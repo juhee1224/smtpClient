@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.stream.Stream;
 
 
 public class EmailSenderGUI extends JFrame {
@@ -192,19 +193,39 @@ public class EmailSenderGUI extends JFrame {
                 try (SSLSocket socket = (SSLSocket) factory.createSocket(SMTP_SERVER, SMTP_PORT);
                      PrintWriter writer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream()));
                      BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()))) {
+
                     String fileName = new File(attachmentPath).getName();
 
-                    executeCommand(writer, reader, "HELO google.com");
-                    executeCommand(writer, reader, "AUTH LOGIN");
-                    executeCommand(writer, reader, Base64.getEncoder().encodeToString(SENDER_EMAIL.getBytes()));
-                    executeCommand(writer, reader, Base64.getEncoder().encodeToString(PASSWORD.getBytes()));
-                    executeCommand(writer, reader, "MAIL FROM:<" + SENDER_EMAIL + ">");
-                    executeCommand(writer, reader, "RCPT TO:<" + recipientEmail + ">");
+                     /*
+                    sendMessage(writer, "HELO google.com");
+                    receiveMessage(reader);
+                    sendMessage(writer, "AUTH LOGIN");
+                    receiveMessage(reader);
+                    */
+
+                    sendMessage(writer, "HELO google.com");
+                    receiveMessage(reader);
+                    receiveMessage(reader);
+                    sendMessage(writer, "AUTH LOGIN");
+                    receiveMessage(reader);
+                    sendMessage(writer, Base64.getEncoder().encodeToString(SENDER_EMAIL.getBytes()));
+                    receiveMessage(reader);
+                    sendMessage(writer, Base64.getEncoder().encodeToString(PASSWORD.getBytes()));
+                    receiveMessage(reader);
+                    sendMessage(writer, "MAIL FROM:<" + SENDER_EMAIL + ">");
+                    receiveMessage(reader);
+                    sendMessage(writer, "RCPT TO:<" + recipientEmail + ">");
+                    receiveMessage(reader);
+                    sendMessage(writer, "VRFY");
+                    receiveMessage(reader);
                     if (!ccEmail.isEmpty()) {
-                        executeCommand(writer, reader, "RCPT TO:<" + ccEmail + ">");
+                        sendMessage(writer, "RCPT TO:<" + ccEmail + ">");
+                        receiveMessage(reader);
+                        sendMessage(writer, "VRFY");
+                        receiveMessage(reader);
                     }
-                    executeCommand(writer, reader, "VRFY");
-                    executeCommand(writer, reader, "DATA");
+                    sendMessage(writer, "DATA");
+                    receiveMessage(reader);
 
                     // 메일 내용 작성 및 전송
                     writer.write("Subject:" + subject + "\r\n");
@@ -231,9 +252,12 @@ public class EmailSenderGUI extends JFrame {
                         writer.write("\r\n--boundary--\r\n\r\n");
                     }
 
-                    executeCommand(writer, reader, ".");
+                    sendMessage(writer, ".");
+                    receiveMessage(reader);
                     JOptionPane.showMessageDialog(null,"메일 전송 완료", "전송 성공", JOptionPane.INFORMATION_MESSAGE);
                     // 알림창 -> 메일 보내기 성공
+
+                    receiveMessageAll(reader);
 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -249,20 +273,22 @@ public class EmailSenderGUI extends JFrame {
         new EmailSenderGUI();
     }
 
-    // SMTP 서버에 명령어 전송하고 응답을 받는 메서드
-    private static void executeCommand(PrintWriter writer, BufferedReader in, String command) throws IOException {
-        System.out.println("Send : " + command); // 콘솔에 보내는 명령어 출력
-        writer.println(command); // command을 출력 스트림에 쓰고 줄 바꿈을 추가,데이터는 버퍼에 저장되며 실제로 출력되는 시점은 버퍼가 가득 차거나 명시적인 출력 작업이 수행될 때
-        writer.flush();//버퍼에 남아있는 데이터를 모두 전송
+    private static void sendMessage(PrintWriter writer, String message) {
+        System.out.println("Send : " + message);
+        writer.println(message);
+        writer.flush();
+    }
 
-//        String line;
-//        while (in.ready()==true) {
-//            line = in.readLine();
-//            System.out.println("Receive : " + line);
-//        }
+    private static void receiveMessage(BufferedReader reader) throws IOException {
+        String line = reader.readLine();
 
-        String line = in.readLine(); // BufferedReader로부터 한 줄의 문자열을 읽어옴 SMTP 서버로부터의 응답을 읽기 위해 사용
-        System.out.println("Receive : " + line); // 콘솔에 SMTP 서버로부터 받은 응답 출력
+        System.out.println("Receive : " + line);
+    }
+    private static void receiveMessageAll(BufferedReader reader) throws IOException {
+        String line;
+        while((line = reader.readLine()) != null){
+        System.out.println("Receive : " + line);
+        }
     }
 }
 
